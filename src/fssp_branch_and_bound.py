@@ -1,27 +1,24 @@
 import numpy as np
 
-class MathDev:
-    def __init__(self, tempos_trabalhos):
+class FsspSolver:
+    def __init__(self, num_trabalhos: int, num_maquinas: int, tempos_trabalhos: list[list] | np.ndarray) -> None:
         """
-            Classe MathDev para o problema de escalonamento de trabalhos em máquinas (FSSP).
+            Classe FsspSolver para o Flow-shop Scheduling Problem (FSSP).
             A classe é uma abstração do desenvolvimento apresentado no artigo, diferenciando que temos uma generalização
             para m máquinas e n trabalhos.
 
-            Como atributos temos:
+            Como parametros temos:
                 - tempos_trabalhos: matriz de tempos de processamento dos trabalhos em cada máquina
-                - n: número de trabalhos (linhas)
-                - m: número de máquinas (colunas)
-                - C: matriz de tempos de conclusão
-                - lbs: lista de lower bounds para cada máquina
+                - num_trabalhos: número de trabalhos (linhas)
+                - num_maquinas: número de máquinas (colunas)
         """
-        self.tempos_trabalhos = tempos_trabalhos 
-        self.n = len(tempos_trabalhos)
-        self.m = len(tempos_trabalhos[0])
+        self.tempos_trabalhos = np.array(tempos_trabalhos)
+        self.n = num_trabalhos
+        self.m = num_maquinas
+        self.melhor_ub = float("inf")
+        self.melhor_seq = []
 
-        self.C = np.zeros((self.n, self.m))
-        self.lbs = [0] * self.m 
-
-    def calcular_makespan(self, sequencia):
+    def _calcular_makespan(self, sequencia: list) -> float:
         """
             Função 'calcular_makespan' calcula o makespan (tempo total de conclusão) para uma dada sequência de trabalhos.
             Retorna o valor do makespan.
@@ -34,22 +31,22 @@ class MathDev:
             A matriz C[i][j] armazena o tempo de conclusão do trabalho i na máquina j.
         """
         n = len(sequencia)
-        m = len(self.tempos_trabalhos[0])
-
-        for i in range(n):
+        m = self.m
+        C = np.zeros((n, m))
+        
+        C[0, 0] = self.tempos_trabalhos[sequencia[0], 0]
+        for j in range(1, m):
+            C[0, j] = C[0, j-1] + self.tempos_trabalhos[sequencia[0], j]
+        
+        for i in range(1, n):
             trabalho = sequencia[i]
-            for j in range(m):
-                if i == 0 and j == 0:
-                    self.C[i][j] = self.tempos_trabalhos[trabalho][j]
-                elif i == 0:
-                    self.C[i][j] = self.C[i][j-1] + self.tempos_trabalhos[trabalho][j]
-                elif j == 0:
-                    self.C[i][j] = self.C[i-1][j] + self.tempos_trabalhos[trabalho][j]
-                else:
-                    self.C[i][j] = max(self.C[i-1][j], self.C[i][j-1]) + self.tempos_trabalhos[trabalho][j]
-        return self.C[n-1][m-1]
+            C[i, 0] = C[i-1, 0] + self.tempos_trabalhos[trabalho, 0]
+            for j in range(1, m):
+                C[i, j] = max(C[i-1, j], C[i, j-1]) + self.tempos_trabalhos[trabalho, j]
+        
+        return C[n-1, m-1]
 
-    def calcular_gargalos(self):
+    def _calcular_gargalos(self, matriz:np.ndarray | None = None) -> tuple[list[float], float]:
         """
             Função 'calcular_gargalos' calcula os gargalos (lower bounds) para cada máquina.
             Retorna uma lista com os lower bounds e o menor lower bound entre eles.
@@ -64,7 +61,7 @@ class MathDev:
             
             O menor LB entre todos representa o limite inferior mais realista para o makespan.
         """
-        matriz = np.array(self.tempos_trabalhos)
+        matriz = self.tempos_trabalhos.copy() if matriz is None else matriz
         maquinas = matriz.T
         
         gargalos = []
@@ -82,7 +79,7 @@ class MathDev:
         
         return gargalos, min(gargalos)
     
-    def calcular_lower_bound_parcial(self, sequencia_parcial, trabalhos_restantes):
+    def _calcular_lower_bound_parcial(self, sequencia_parcial: list, trabalhos_restantes: list) -> float:
         """
             Função 'calcular_lower_bound_parcial' calcula o lower bound para um escalonamento parcial.
             
@@ -103,29 +100,20 @@ class MathDev:
         if not trabalhos_restantes:
             if not sequencia_parcial:
                 return 0
-            return self.calcular_makespan(sequencia_parcial)
+            return self._calcular_makespan(sequencia_parcial)
         
         # Sequência vazia... mas ainda há trabalhos restantes
         if not sequencia_parcial:
             tempos_restantes = [self.tempos_trabalhos[t] for t in trabalhos_restantes]
-            matriz_restantes = np.array(tempos_restantes).T
-
-            gargalos_restantes = []
-
-            for k in range(self.m):
-                max_k = matriz_restantes[k].max()
-                soma_outros = sum(
-                    matriz_restantes[j].min() 
-                    for j in range(self.m) 
-                    if j != k
-                )
-                gargalos_restantes.append(max_k + soma_outros)
-
-            return min(gargalos_restantes)
+            matriz_restantes = np.array(tempos_restantes)
+            
+            _, min_lb = self._calcular_gargalos(matriz_restantes)
+            
+            return min_lb
         
         # Rock n' roll, temos tudo muchacho!
         else:
-            makespan_parcial = self.calcular_makespan(sequencia_parcial)
+            makespan_parcial = self._calcular_makespan(sequencia_parcial)
 
             estimativa_restantes = sum(
                 min(self.tempos_trabalhos[t]) for t in trabalhos_restantes
@@ -133,44 +121,72 @@ class MathDev:
 
             return makespan_parcial + estimativa_restantes
 
+    def _branch_and_bound(self, seq_atual: list, trabalhos_restantes: list) -> None:
+        # Folha
+        if not trabalhos_restantes:
+            makespan_atual = self._calcular_makespan(seq_atual)
+            
+            if makespan_atual < self.melhor_ub:
+                self.melhor_ub = makespan_atual
+                self.melhor_seq = seq_atual
+                
+            return
 
-    def branch_and_bound(self):
-        """
-            Função 'branch_and_bound' implementa o algoritmo Branch and Bound para encontrar a sequência ótima S0.
+        # Nó
+        for trabalho in trabalhos_restantes:
             
-            Algoritmo baseado no artigo:
-            1. Começo
-            2. Entradas (tempos de processamento)
-            3. Summation do processamento para cada máquina
-            4. Lower bound inicial
-            5. Escolha o lower bound alvo
-            6. Crie uma branch para cada trabalho (ramificação)
-            7. Repita 4,5 (calcule LB para cada branch)
-            8. Escolha o menor lower bound para todos os trabalhos
-            9. Se o menor LB não for mais um → procure o maior lb que está mais perto nos trabalhos selecionados
-            11. Selecione o menor trabalho lb
-            12. Repita os passos 7 ao 11
-            13. Pare (quando encontrar S0)
+            seq_novo = seq_atual + [trabalho]
             
-            Estratégia:
-            - Explora a árvore de decisão de forma sistemática
-            - Poda (bound): descarta branches com LB >= melhor solução conhecida
-            - Ramificação (branch): cria subproblemas para cada trabalho não escalado
+            novo_trabalhos_restantes = trabalhos_restantes.copy()
+            novo_trabalhos_restantes.remove(trabalho)
             
-            Retorna: (melhor_sequencia, melhor_makespan)
-        """
-        # TO-DO
-        pass
+            lb_parcial = self._calcular_lower_bound_parcial(seq_novo, novo_trabalhos_restantes)
+            
+            if lb_parcial < self.melhor_ub:
+                self._branch_and_bound(seq_novo, novo_trabalhos_restantes)
 
-    # def busca_tabu(self):
-    #   Essa aqui é como dizia a Banda Catedral...
-    #  "Sabe lá... sabe lá... 
-    #   -- TO-DO (Será mesmo?) --
-    #   Sabe lá... sabe lá..."
+    def run(self) -> tuple[list, float]:
+        todos_trabalhos = [i for i in range(self.n)]
+        self.melhor_ub = self._calcular_makespan(todos_trabalhos)
+        self.melhor_seq = todos_trabalhos
+
+        self._branch_and_bound(seq_atual=[], trabalhos_restantes=todos_trabalhos)
+
+        return self.melhor_seq, self.melhor_ub
+
+
+if __name__ == "__main__":
+    '''Teste do algoritmo'''
+
+    nome = "Teste"
+    num_trabalhos = 3
+    num_maquinas = 3
+    tempos_de_trabalho = [
+        [3, 5, 4],
+        [1, 2, 3],
+        [5, 3, 1],
+    ]
     
+    print(f"Nome: {nome}")
+    print(f"Trabalhos: {num_trabalhos}")
+    print(f"Maquinas: {num_maquinas}")
+    print("Matriz:")
+    for linha in tempos_de_trabalho:
+        linha_formatada = " ".join(f"{elem:>6}" for elem in linha)
+        print(linha_formatada)
 
-    
-
-
-
-
+    solver = FsspSolver(num_maquinas, num_trabalhos, tempos_de_trabalho)
+    seq = [0,1,2]
+    print(f"MakeSpan de {seq}: {solver._calcular_makespan(seq)}")
+    seq = [0,2,1]
+    print(f"MakeSpan de {seq}: {solver._calcular_makespan(seq)}")
+    seq = [1,0,2]
+    print(f"MakeSpan de {seq}: {solver._calcular_makespan(seq)}")
+    seq = [1,2,0]
+    print(f"MakeSpan de {seq}: {solver._calcular_makespan(seq)}")
+    seq = [2,0,1]
+    print(f"MakeSpan de {seq}: {solver._calcular_makespan(seq)}")
+    seq = [2,1,0]
+    print(f"MakeSpan de {seq}: {solver._calcular_makespan(seq)}")
+    seq_solucao, makespan_solucao = solver.run()
+    print(f"Resposta {seq_solucao}: {makespan_solucao}")
