@@ -1,0 +1,5 @@
+Arquivo: flowshop1.txt
+    - Disponiveis em: https://people.brunel.ac.uk/~mastjjb/jeb/orlib/files/?C=D;O=A
+    - Acesso em: 05/11/2025
+Arquivo instancias.json:
+    - Gerado pela extração do flowshop1.txt usano txt2json.py
