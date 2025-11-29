@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 class FsspSolver:
     def __init__(self, num_trabalhos: int, num_maquinas: int, tempos_trabalhos: list[list] | np.ndarray) -> None:
@@ -84,10 +85,69 @@ class FsspSolver:
             solucao = melhor_insercao
 
         return solucao
+    
+    def _gerar_populacao(self, tamanho_populacao: int = 2) -> list[list]:
+        populacao = []
+        populacao.append(self._solucao_inicial())
 
-    def run(self) -> tuple[list, float]:
-        solucao = self._solucao_inicial()
-        return solucao, self._calcular_makespan(solucao)
+        for _ in range(tamanho_populacao - 1):
+            individuo = list(range(self.n))
+            random.shuffle(individuo)
+            populacao.append(individuo)
+
+        return populacao
+    
+    def _calcular_aptidao(self, individuo: list[float]):
+        """
+        Calcular o quão apto é, quanto menor o makespan maior a aptidao.
+        """
+        return 1.0/self._calcular_makespan(individuo)
+
+    
+    def _algoritmo_genetico(
+            self, 
+            tamanho_populacao: int = 50,
+            numero_geracoes: int = 100,
+            taxa_crossover: float = 0.8,
+            taxa_mutacao: float = 0.1,
+            com_busca_local: bool = False
+    ) -> tuple[list, float]:
+        #TODO: adicionar o doc string
+        """
+        Fazer
+        """
+        if tamanho_populacao < 2:
+            raise ValueError("População deve ser >= 2!!!!!")
+        
+        populacao = self._gerar_populacao(tamanho_populacao)
+        melhor_solucao = None
+        melhor_makespan = float('inf')
+        
+        #TODO: Continuar
+        for geracao in range(numero_geracoes):
+            
+            aptidoes_populacao_atual = [self._calcular_aptidao(individuo) for individuo in populacao]
+            melhor_individuo = populacao[np.argmax(aptidoes_populacao_atual)]
+            melhor_individuo_makespan = self._calcular_makespan(melhor_individuo)
+            if melhor_individuo_makespan < melhor_makespan:
+                melhor_solucao = melhor_individuo.copy()
+                melhor_makespan = melhor_individuo_makespan
+            
+            nova_populacao = []
+
+        return melhor_solucao, melhor_makespan
+
+    def run(self, metodo: str = "neh") -> tuple[list, float]:
+        """Método principal para executar diferentes algoritmos"""
+        if metodo == "neh":
+            solucao = self._solucao_inicial()
+            return solucao, self._calcular_makespan(solucao)
+        elif metodo == "genetico":
+            return self._algoritmo_genetico()
+        elif metodo == "memetico":
+            return self._algoritmo_genetico(com_busca_local=True)
+        else:
+            raise ValueError("Método deve ser 'neh', 'genetico' ou 'memetico'")
 
 
 if __name__ == "__main__":
