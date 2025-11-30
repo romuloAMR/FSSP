@@ -97,12 +97,84 @@ class FsspSolver:
 
         return populacao
     
-    def _calcular_aptidao(self, individuo: list[float]):
+    def _calcular_aptidao(self, individuo: list[float]): # Segundo o framework de Silvia, isso aqui já seria papo de método de adequação
         """
         Calcular o quão apto é, quanto menor o makespan maior a aptidao.
         """
         return 1.0/self._calcular_makespan(individuo)
+    
+    def _torneio(self, populacao, k):
+        candidatos = random.sample(populacao, k)
+        melhor = max(candidatos, key=lambda ind: self._calcular_aptidao(ind))
+        return melhor
 
+    # Método para selecionar cromossomos para reproduzir
+    def _reproduzir(self, populacao, num_filhos):
+        pais = []
+        for _ in range(num_filhos):
+            p1 = self._torneio(populacao, k=3)
+            p2 = self._torneio(populacao, k=3)
+            pais.append((p1,p2))
+        return pais
+
+    def _ox2(self, parent1, parent2):
+        size = len(parent1)
+        k = random.randint(1, size - 1)
+        swap_indexes = sorted(random.sample(range(size), k))
+        selected_values = [parent2[i] for i in swap_indexes]
+        positions = [parent1.index(v) for v in selected_values]
+        child = parent1.copy()
+        for pos, val in zip(positions, selected_values):
+            child[pos] = val
+        return child
+    
+    # Método para recombinar
+    def _recombinar(self, pais):
+        """Recebe lista de pares e retorna lista de filhos."""
+        filhos = []
+        for p1, p2 in pais:
+            f1 = self._ox2(p1, p2)
+            f2 = self._ox2(p2, p1)
+            filhos.append(f1)
+            filhos.append(f2)
+        return filhos
+    
+    # Método para efetuar mutação
+    def _mutagenico(self, individuo):
+        array = individuo[:]
+        l = len(array)
+
+        r1 = random.randrange(l)
+        r2 = random.randrange(l)
+        while r1 == r2:
+            r2 = random.randrange(l)
+
+        if r1 > r2:
+            r1, r2 = r2, r1
+
+        gene = array[r2]
+        for i in range(r2, r1, -1):
+            array[i] = array[i - 1]
+        
+        array[r1] = gene
+
+        return array
+
+
+    def _renovar(self, parents, offspring, mu):
+        # 2.2 Avaliar pais e filhos
+        evaluated_parents = [(ind, self._calcular_aptidao(ind)) for ind in parents]
+        evaluated_offspring = [(ind, self._calcular_aptidao(ind)) for ind in offspring]
+
+        # 2.3 Combinar populações: R = P ∪ O
+        combined = evaluated_parents + evaluated_offspring  # tamanho μ + λ
+
+        # 2.4 Selecionar os melhores μ indivíduos
+        combined.sort(key=lambda x: x[1], reverse=True)  # menor fitness primeiro (ou inverter se for maximização)
+        survivors = [ind for ind, fit in combined[:mu]]
+
+        # 2.5 Retorna os μ sobreviventes
+        return survivors
     
     def _algoritmo_genetico(
             self, 
