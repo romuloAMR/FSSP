@@ -236,6 +236,29 @@ class FsspSolver:
         array.insert(r2, gene)
 
         return array
+    
+    def _busca_local(self, individuo: list[int]) -> list[int]:
+        """
+        Busca local simples baseada em swap de vizinhos adjacentes.
+
+        Testa swaps entre pares adjacentes e retorna o primeiro vizinho melhor.
+
+        Args:
+            individuo: Solução inicial para busca local.
+        Returns:
+            list[int]: Melhor solução encontrada na vizinhança.
+        """
+        melhor_vizinho = individuo[:]
+        melhor_makespan = self._calcular_makespan(individuo)
+
+        for i in range(len(individuo) - 1):
+            vizinho = individuo.copy()
+            vizinho[i], vizinho[i+1] = vizinho[i+1], vizinho[i]
+            ms = self._calcular_makespan(vizinho)
+            if ms < melhor_makespan:
+                return vizinho
+
+        return melhor_vizinho
 
     def _renovar(
             self,
@@ -316,7 +339,7 @@ class FsspSolver:
             if com_busca_local:
                 for i in range(len(filhos)):
                     if random.random() < 0.2:
-                        #filhos[i] = self._busca_local(filhos[i])
+                        filhos[i] = self._busca_local(filhos[i])
             
             # 6. Sobrevivência (Renovação)
             populacao = self._renovar(populacao, filhos, tamanho_populacao)
