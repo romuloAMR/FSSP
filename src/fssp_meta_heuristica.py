@@ -346,12 +346,23 @@ class FsspSolver:
 
         return melhor_solucao_global, melhor_makespan_global
 
-    def run(self, metodo: str = "neh") -> tuple[list, float]:
+    def run(
+            self,
+            metodo: str = "neh",
+            tamanho_populacao: int = 20,
+            numero_geracoes: int = 50,
+            taxa_crossover: float = 0.8,
+            taxa_mutacao: float = 0.2,
+    ) -> tuple[list, float]:
         """
         Método principal para executar diferentes algoritmos de resolução.
 
         Args:
             metodo: Algoritmo a ser executado ('neh', 'genetico' ou 'memetico').
+            tamanho_populacao: Tamanho da população.
+            numero_geracoes: Número de gerações a executar.
+            taxa_crossover: Probabilidade de cruzamento.
+            taxa_mutacao: Probabilidade de mutação.
 
         Returns:
             tuple[list, float]: Sequência de trabalhos e makespan correspondente.
@@ -363,9 +374,9 @@ class FsspSolver:
             solucao = self._solucao_inicial()
             return solucao, self._calcular_makespan(solucao)
         elif metodo == "genetico":
-            return self._algoritmo_genetico(com_busca_local=False)
+            return self._algoritmo_genetico(tamanho_populacao, numero_geracoes, taxa_crossover, taxa_mutacao, com_busca_local=False)
         elif metodo == "memetico":
-            return self._algoritmo_genetico(com_busca_local=True)
+            return self._algoritmo_genetico(tamanho_populacao, numero_geracoes, taxa_crossover, taxa_mutacao, com_busca_local=True)
         else:
             raise ValueError("Método deve ser 'neh', 'genetico' ou 'memetico'")
 
