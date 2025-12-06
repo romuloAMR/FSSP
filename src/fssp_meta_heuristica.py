@@ -335,13 +335,11 @@ class FsspSolver:
                 if random.random() < taxa_mutacao:
                     filhos[i] = self._mutagenico(filhos[i])
 
-            # Busca Local (Memético)
-            if com_busca_local:
-                for i in range(len(filhos)):
-                    if random.random() < 0.2:
-                        filhos[i] = self._busca_local(filhos[i])
+                # Busca Local (Memético)
+                if com_busca_local and random.random() < 0.2:
+                    filhos[i] = self._busca_local(filhos[i])
             
-            # 6. Sobrevivência (Renovação)
+            # Sobrevivência (Renovação)
             populacao = self._renovar(populacao, filhos, tamanho_populacao)
 
         return melhor_solucao_global, melhor_makespan_global
