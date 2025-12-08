@@ -1,6 +1,6 @@
 import numpy as np
 
-class FsspSolver:
+class FsspSolverExato:
     def __init__(self, num_trabalhos: int, num_maquinas: int, tempos_trabalhos: list[list] | np.ndarray) -> None:
         """
             Classe FsspSolver para o Flow-shop Scheduling Problem (FSSP).

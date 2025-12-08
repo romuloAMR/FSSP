@@ -9,7 +9,8 @@
             "extensions":[
 				"ms-python.python",
 				"ms-azuretools.vscode-docker",
-				"ms-toolsai.jupyter"
+				"ms-toolsai.jupyter",
+				"cweijan.vscode-excel"
 			]
             }
         }
